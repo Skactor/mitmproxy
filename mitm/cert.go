@@ -3,9 +3,9 @@ package mitm
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"github.com/Skactor/mitmproxy/config"
 	"github.com/elazarl/goproxy"
 	"io/ioutil"
-	"test/config"
 )
 
 func SetCA(config config.ServerConfig) (err error) {

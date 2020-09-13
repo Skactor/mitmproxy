@@ -1,14 +1,14 @@
 package main
 
 import (
+	"github.com/Skactor/mitmproxy/config"
+	"github.com/Skactor/mitmproxy/export"
+	"github.com/Skactor/mitmproxy/logger"
+	"github.com/Skactor/mitmproxy/mitm"
 	"github.com/elazarl/goproxy"
 	"github.com/vardius/message-bus"
 	"log"
 	"net/http"
-	"test/config"
-	"test/export"
-	"test/logger"
-	"test/mitm"
 )
 
 func main() {

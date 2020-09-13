@@ -1,4 +1,4 @@
-module test
+module github.com/Skactor/mitmproxy
 
 go 1.15
 

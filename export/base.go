@@ -2,9 +2,9 @@ package export
 
 import (
 	"bytes"
+	"github.com/Skactor/mitmproxy/logger"
 	"net/http"
 	"net/http/httputil"
-	"test/logger"
 )
 
 type Exporter interface {
