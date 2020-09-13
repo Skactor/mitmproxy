@@ -1,18 +1,22 @@
 package main
 
 import (
+	"bytes"
 	"github.com/Skactor/mitmproxy/config"
 	"github.com/Skactor/mitmproxy/export"
 	"github.com/Skactor/mitmproxy/logger"
 	"github.com/Skactor/mitmproxy/mitm"
 	"github.com/elazarl/goproxy"
 	"github.com/vardius/message-bus"
+	"io/ioutil"
 	"log"
 	"net/http"
 )
 
+var exporter export.Exporter
+var bus = messagebus.New(100)
+
 func main() {
-	var exporter export.Exporter
 
 	err := logger.InitLogger()
 	if err != nil {
@@ -34,9 +38,8 @@ func main() {
 		logger.Logger.Fatal(err.Error())
 	}
 	defer exporter.Close()
-	var bus = messagebus.New(100)
-	_ = bus.Subscribe("response", func(resp *http.Response, i int) {
-		output, err := export.OutputRequestFromResponse(resp)
+	_ = bus.Subscribe("response", func(req *http.Request, resp *http.Response, i int) {
+		output, err := export.OutputRequestFromResponse(req, resp)
 		if err != nil {
 			logger.Logger.Errorf("Failed to parse response with error: %s", err.Error())
 			return
@@ -46,7 +49,7 @@ func main() {
 			logger.Logger.Error(err.Error())
 			if i < 2 {
 				exporter.Open(cfg.Exporter.Config)
-				bus.Publish("response", resp, i+1)
+				bus.Publish("response", req, resp, i+1)
 			}
 			return
 		}
@@ -59,9 +62,20 @@ func main() {
 
 	proxy := goproxy.NewProxyHttpServer()
 	proxy.OnRequest().HandleConnect(goproxy.AlwaysMitm)
+	proxy.OnRequest().DoFunc(
+		func(req *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
+			bodyBytes, _ := ioutil.ReadAll(req.Body)
+			req.Body.Close()
+			req.Body = ioutil.NopCloser(bytes.NewBuffer(bodyBytes))
+			ctx.UserData = bodyBytes
+			return req, nil
+		},
+	)
 	proxy.OnResponse().DoFunc(
 		func(resp *http.Response, ctx *goproxy.ProxyCtx) *http.Response {
-			bus.Publish("response", resp, 0)
+			logger.Logger.Infof("Req: [%d] [%s] %s", resp.StatusCode, resp.Request.Method, resp.Request.URL.String())
+			ctx.Req.Body = ioutil.NopCloser(bytes.NewBuffer(ctx.UserData.([]byte)))
+			bus.Publish("response", ctx.Req, ctx.Resp, 0)
 			return resp
 		},
 	)
