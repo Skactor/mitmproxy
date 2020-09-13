@@ -5,6 +5,7 @@ import (
 	"github.com/Skactor/mitmproxy/logger"
 	"net/http"
 	"net/http/httputil"
+	"strings"
 )
 
 type Exporter interface {
@@ -15,18 +16,32 @@ type Exporter interface {
 }
 
 type OutputRequest struct {
-	Url               string `json:"url"`
-	StatusCode        int    `json:"status_code"`
-	RawRequestHeader  string `json:"raw_request"`
-	RawRequestBody    string `json:"raw_request_body"`
-	RawResponseHeader string `json:"raw_response"`
-	RawResponseBody   string `json:"raw_response_body"`
+	Url               string            `json:"url"`
+	Method            string            `json:"method"`
+	StatusCode        int               `json:"status_code"`
+	RawRequestHeader  string            `json:"raw_request"`
+	RawRequestBody    string            `json:"raw_request_body"`
+	RawResponseHeader string            `json:"raw_response"`
+	RawResponseBody   string            `json:"raw_response_body"`
+	ReqHeaders        map[string]string `json:"request_headers"`
+	RespHeaders       map[string]string `json:"response_headers"`
+}
+
+func HeadersToMap(headers http.Header) map[string]string {
+	result := map[string]string{}
+	for name, value := range headers {
+		result[name] = strings.Join(value, "")
+	}
+	return result
 }
 
 func OutputRequestFromResponse(req *http.Request, resp *http.Response) (*OutputRequest, error) {
 	out := OutputRequest{
-		Url:        req.URL.String(),
-		StatusCode: resp.StatusCode,
+		Method:      req.Method,
+		Url:         req.URL.String(),
+		StatusCode:  resp.StatusCode,
+		ReqHeaders:  HeadersToMap(req.Header),
+		RespHeaders: HeadersToMap(resp.Header),
 	}
 
 	rawRequest, err := httputil.DumpRequestOut(req, true)
