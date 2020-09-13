@@ -1,0 +1,10 @@
+exporter:
+  type: tcp
+  config:
+    address: 127.0.0.1:3333
+    keepalive: 1000
+    newline: true
+server:
+  cert: certs/ca.pem
+  key: certs/key.pem
+  address: ":3334"
