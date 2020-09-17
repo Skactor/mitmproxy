@@ -6,14 +6,13 @@ import (
 	"github.com/Skactor/mitmproxy/logger"
 	"github.com/Skactor/mitmproxy/mitm"
 	"github.com/elazarl/goproxy"
-	"github.com/vardius/message-bus"
+	"github.com/panjf2000/ants/v2"
 	"log"
 	"net/http"
 	"net/http/httputil"
 )
 
 var exporter export.Exporter
-var bus = messagebus.New(100)
 
 func main() {
 
@@ -37,23 +36,14 @@ func main() {
 		logger.Logger.Fatal(err.Error())
 	}
 	defer exporter.Close()
-	_ = bus.Subscribe("response", func(req []byte, resp []byte, i int) {
-		go func() {
-			err = exporter.WriteInterface(map[string][]byte{
-				"request":  req,
-				"response": resp,
-			})
-			if err != nil {
-				logger.Logger.Error(err.Error())
-				if i < 2 {
-					exporter.Open(cfg.Exporter.Config)
-					bus.Publish("response", req, resp, i+1)
-				}
-				return
-			}
-		}()
-	})
 
+	pool, _ := ants.NewPoolWithFunc(1024, func(i interface{}) {
+		err = exporter.WriteInterface(i)
+		if err != nil {
+			logger.Logger.Error(err.Error())
+			exporter.Open(cfg.Exporter.Config)
+		}
+	})
 	err = mitm.SetCA(cfg.Server)
 	if err != nil {
 		log.Fatalf("Failed to set ca: %s", err.Error())
@@ -79,7 +69,10 @@ func main() {
 				logger.Logger.Error(err.Error())
 			}
 
-			bus.Publish("response", ctx.UserData.([]byte), rawResponse, 0)
+			pool.Invoke(map[string][]byte{
+				"request":  ctx.UserData.([]byte),
+				"response": rawResponse,
+			})
 			ctx.UserData = nil
 			return resp
 		},
